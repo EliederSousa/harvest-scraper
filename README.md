@@ -1,7 +1,13 @@
 # Harvest Scraper
 
-*When your automated web scraping fails, use this.*
+![HTML5](https://img.shields.io/badge/HTML5-E34F26?logo=html5&logoColor=white)
+![CSS3](https://img.shields.io/badge/CSS3-1572B6?logo=css3&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?logo=javascript&logoColor=black)
+![Firefox](https://img.shields.io/badge/Firefox-FF7139?logo=firefoxbrowser&logoColor=white)
+![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue)
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 
+*When your automated web scraping fails, use this.*
 
 A Firefox extension for extracting (scraping) data from web pages using configurable rules, no code required. It runs as a sidebar, so you can browse the site normally while capturing data.
 
