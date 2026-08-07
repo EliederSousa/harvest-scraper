@@ -27,6 +27,7 @@ function addInput(sectionId) {
                             <option value="CSS">CSS Selector</option>
                             <option value="Attribute">Attribute</option>
                             <option value="Index">Index</option>
+                            <option value="ActualLink">Actual Link</option>
                             <option value="TextContent">Text Content</option>
                             <option value="Regex">Regex</option>
                             <option value="AutoLink">Auto Link</option>
@@ -36,7 +37,7 @@ function addInput(sectionId) {
                     </div>
                 </div>
             </div>
-            <p class="result-area" id="result-area-${id}"><span class="result-counter" id="result-counter-${id}"></span></p>
+            <p class="result-area" id="result-area-${id}"><span class="result-counter" id="result-counter-${id}"></span><button class="btn-copyresult" id="btn-copyresult-${id}" title="Copy"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="gray" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-clipboard-icon lucide-clipboard"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg></button></p>
         </div>
     `;
     harvest_keyscounter++;
@@ -55,6 +56,7 @@ function handleButtonsClick(e) {
                         <option value="CSS">CSS Selector</option>
                         <option value="Attribute">Attribute</option>
                         <option value="Index">Index</option>
+                        <option value="ActualLink">Actual Link</option>
                         <option value="TextContent">Text Content</option>
                         <option value="Regex">Regex</option>
                         <option value="AutoLink">Auto Link</option>
@@ -83,11 +85,12 @@ function createSectionDOM(section) {
     config.className = 'section-config';
     config.dataset.sectionId = section.id;
     config.innerHTML = `
-        <label><input type="checkbox" class="chk-linksource" /> This tab get links to visit in another tab</label>
+        <label><input type="checkbox" class="chk-linksource" /> Process data using field </label>
         <select class="select-linkfield"></select>
-        <span class="linksource-label-to">abrir em:</span>
+        <span class="linksource-label-to">in tab </span>
         <select class="select-targetsection"></select>
-        <button class="btn-delsection">Remover aba</button>
+        <button class="btn-processlinks" title="Processar todos os links agora (sem paginação)">▶ Process links</button>
+        <button class="btn-delsection">Remove Tab</button>
     `;
     wrap.appendChild(config);
 
@@ -288,9 +291,11 @@ async function harvestSectionRaw(sectionId) {
             const allValues = summary[key] || [];
             const resultCounter = document.querySelector(`#result-counter-${rowId}`);
             const resultArea = document.querySelector(`#result-area-${rowId}`);
+            const copyBtn = document.querySelector(`#btn-copyresult-${rowId}`);
             if (resultArea) {
                 resultArea.textContent = allValues.map((v, i) => `${i + 1} | ${v}`).join('\n');
                 if (resultCounter) resultArea.prepend(resultCounter);
+                if (copyBtn) resultArea.appendChild(copyBtn);
             }
             if (resultCounter) resultCounter.textContent = allValues.length;
         });
@@ -301,7 +306,7 @@ async function harvestSectionRaw(sectionId) {
 
 // Faz o harvest de uma aba; se ela estiver configurada como "link source", visita cada
 // link achado, harvesta a aba de destino, e salva uma linha combinada por item.
-async function harvestSectionWithDetails(sectionId, save) {
+async function harvestSectionWithDetails(sectionId, save, isActiveFn = () => true) {
     const section = sections.find(s => s.id === sectionId);
     const listSummary = await harvestSectionRaw(sectionId);
 
@@ -321,8 +326,10 @@ async function harvestSectionWithDetails(sectionId, save) {
     if (!tabId) return listSummary;
 
     for (const link of links) {
+        if (!isActiveFn()) break;
+
         await navigateAndWait(tabId, link);
-        const detailSummary = await harvestSectionRaw(section.targetSectionId);
+        const detailSummary = await harvestSectionWithRetry(section.targetSectionId);
 
         const combinedRow = {};
         Object.entries(detailSummary).forEach(([k, arr]) => {
@@ -335,13 +342,13 @@ async function harvestSectionWithDetails(sectionId, save) {
         }
     }
 
-    // volta para a página de listagem antes de seguir a paginação
-    if (originalUrl) {
+    if (originalUrl && isActiveFn()) {
         await navigateAndWait(tabId, originalUrl);
     }
 
     return listSummary;
 }
+
 
 function harvestPage(save) {
     return harvestSectionWithDetails(activeSectionId, save);
@@ -496,6 +503,8 @@ let autoHarvestSectionId = null;
 let pendingRowsBuffer = [];
 const FLUSH_EVERY = 50;
 let accumulatedTotalCount = null; // evita ler o storage a cada item adicionado
+let processLinksActive = false;
+let processLinksSectionId = null;
 
 async function getAccumulatedTotal() {
     if (accumulatedTotalCount === null) {
@@ -521,6 +530,21 @@ function updateAutoHarvestButtonUI() {
     document.querySelectorAll('.btn-autoharvest').forEach(btn => {
         btn.textContent = (autoHarvestActive && btn.id === `btn-autoharvest-${autoHarvestRowId}`) ? "⏹" : "▶";
     });
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Espera até o harvest da seção retornar algo não-vazio, ou desiste após maxAttempts
+async function harvestSectionWithRetry(sectionId, maxAttempts = 5, intervalMs = 5000) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const summary = await harvestSectionRaw(sectionId);
+        const hasContent = Object.values(summary).some(arr => arr.some(v => v));
+        if (hasContent) return summary;
+        await delay(intervalMs);
+    }
+    return await harvestSectionRaw(sectionId); // última tentativa, mesmo vazia
 }
 
 function navigateAndWait(tabId, url) {
@@ -589,6 +613,33 @@ function stopAutoHarvest() {
     flushPendingRows().then(total => updateAllResultCounter(total));
 }
 
+function updateProcessLinksButtonUI() {
+    document.querySelectorAll('.btn-processlinks').forEach(btn => {
+        const config = btn.closest('.section-config');
+        const sectionId = parseInt(config.dataset.sectionId, 10);
+        btn.textContent = (processLinksActive && sectionId === processLinksSectionId) ? "⏹ Parar" : "▶ Process links";
+    });
+}
+
+async function startProcessLinks(sectionId) {
+    processLinksActive = true;
+    processLinksSectionId = sectionId;
+    updateProcessLinksButtonUI();
+
+    await harvestSectionWithDetails(sectionId, true, () => processLinksActive);
+
+    processLinksActive = false;
+    processLinksSectionId = null;
+    updateProcessLinksButtonUI();
+    flushPendingRows().then(total => updateAllResultCounter(total));
+}
+
+function stopProcessLinks() {
+    processLinksActive = false;
+    processLinksSectionId = null;
+    updateProcessLinksButtonUI();
+}
+
 function deleteSection(sectionId) {
     if (sections.length <= 1) {
         alert("Precisa ter pelo menos uma aba.");
@@ -626,6 +677,7 @@ document.addEventListener("DOMContentLoaded", () => {
         addInput(activeSectionId);
         populateSectionDropdowns(activeSectionId);
         saveFormState();
+        harvestSectionRaw(activeSectionId);
     });
 
     document.getElementById("btn-harvest").addEventListener("click", () => {
@@ -640,6 +692,7 @@ document.addEventListener("DOMContentLoaded", () => {
         addInput(id);
         sections.forEach(s => populateSectionDropdowns(s.id));
         switchSection(id);
+        harvestSectionRaw(id)
         saveFormState();
     });
 
@@ -652,33 +705,57 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let lastTabClick = { id: null, time: 0 };
 
-document.getElementById("sections-bar").addEventListener("click", (e) => {
-    const tab = e.target.closest('.section-tab');
-    if (!tab) return;
+    document.getElementById("sections-bar").addEventListener("click", (e) => {
+        const tab = e.target.closest('.section-tab');
+        if (!tab) return;
 
-    const sectionId = parseInt(tab.dataset.sectionId, 10);
-    const now = Date.now();
+        const sectionId = parseInt(tab.dataset.sectionId, 10);
+        const now = Date.now();
 
-    if (lastTabClick.id === sectionId && (now - lastTabClick.time) < 400) {
-        lastTabClick = { id: null, time: 0 };
-        const section = sections.find(s => s.id === sectionId);
-        const newName = prompt('Nome da aba:', section.name);
-        if (newName && newName.trim()) {
-            section.name = newName.trim();
-            renderSectionsBar();
-            sections.forEach(s => populateSectionDropdowns(s.id));
-            saveFormState();
+        if (lastTabClick.id === sectionId && (now - lastTabClick.time) < 400) {
+            lastTabClick = { id: null, time: 0 };
+            const section = sections.find(s => s.id === sectionId);
+            const newName = prompt('Nome da aba:', section.name);
+            if (newName && newName.trim()) {
+                section.name = newName.trim();
+                renderSectionsBar();
+                sections.forEach(s => populateSectionDropdowns(s.id));
+                harvestSectionRaw(activeSectionId);
+                saveFormState();
+            }
+            return;
         }
-        return;
-    }
 
-    lastTabClick = { id: sectionId, time: now };
-    switchSection(sectionId);
-    saveFormState();
-});
+        lastTabClick = { id: sectionId, time: now };
+        switchSection(sectionId);
+        harvestSectionRaw(activeSectionId);
+        saveFormState();
+    });
 
     document.getElementById("sections-content").addEventListener("click", (e) => {
+
+        const copyBtn = e.target.closest(".btn-copyresult");
+        if (copyBtn) {
+            const rowId = copyBtn.id.replace('btn-copyresult-', '');
+            const resultArea = document.querySelector(`#result-area-${rowId}`);
+            const counter = resultArea.querySelector('.result-counter');
+            const copyButton = resultArea.querySelector('.btn-copyresult');
+            const text = resultArea.textContent
+            .replace(counter?.textContent || '', '')
+            .trim();
+            navigator.clipboard.writeText(text).then(() => {
+                copyButton.style.color = 'green';
+                setTimeout(() => { copyButton.style.color = ''; }, 1000);
+            }).catch(err => {
+                console.log("Erro ao copiar: ", err);
+                alert("Não foi possível copiar: " + err.message);
+            });
+            return;
+        }
+
+        if (e.target.closest(".result-area")) return;
         const autoBtn = e.target.closest(".btn-autoharvest");
+
         if (autoBtn) {
             const rowId = autoBtn.id.replace('btn-autoharvest-', '');
             if (autoHarvestActive) {
@@ -688,14 +765,30 @@ document.getElementById("sections-bar").addEventListener("click", (e) => {
             }
             return;
         }
+
         const delSectionBtn = e.target.closest(".btn-delsection");
         if (delSectionBtn) {
             const config = delSectionBtn.closest('.section-config');
             deleteSection(parseInt(config.dataset.sectionId, 10));
             return;
         }
+
+        const processLinksBtn = e.target.closest(".btn-processlinks");
+        if (processLinksBtn) {
+            const config = processLinksBtn.closest('.section-config');
+            const sectionId = parseInt(config.dataset.sectionId, 10);
+
+            if (processLinksActive) {
+                stopProcessLinks();
+            } else {
+                startProcessLinks(sectionId);
+            }
+            return;
+        }
+
         handleButtonsClick(e);
         saveFormState();
+        harvestSectionRaw(activeSectionId);
     });
 
     let harvestDebounce;
@@ -738,6 +831,12 @@ document.getElementById("sections-bar").addEventListener("click", (e) => {
             section.targetSectionId = parseInt(e.target.value, 10);
             saveFormState();
             return;
+        }
+    });
+
+    browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+        if (changeInfo.status === "complete" && tab.active && !autoHarvestActive) {
+            harvestSectionRaw(activeSectionId);
         }
     });
 

@@ -3,7 +3,7 @@
     "name": "Harvest Scraper",
     "version": "1.0.0",
     "description": "When automated scrapping a site fails, use this.",
-    "permissions": ["storage", "activeTab", "scripting", "downloads"],
+    "permissions": ["storage", "activeTab", "scripting", "downloads", "clipboardWrite"],
     "action": {
         "default_title": "Harvest this page",
         "default_icon": {

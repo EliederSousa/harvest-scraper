@@ -17,7 +17,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const steps = [];
 
       rules.forEach(({ rule, type }) => {
-        if (!rule) return;
+        if (!rule && type !== 'TextContent') return;
         try {
           switch (type) {
             case "CSS": {
@@ -41,9 +41,15 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
               // 1. Se houver elementos DOM no contexto, extrai diretamente deles
               if (context.elements && context.elements.length) {
                 values = context.elements
-                  .map(el => el.getAttribute(attrName))
-                  .filter(v => v !== null);
-              } 
+                .map(el => {
+                  // resolve automaticamente URLs relativas quando a propriedade existe (href, src)
+                  if (attrName in el && (attrName === 'href' || attrName === 'src')) {
+                    return el[attrName];
+                  }
+                  return el.getAttribute(attrName);
+                })
+                .filter(v => v !== null);
+              }
               // 2. Se houver apenas strings HTML no contexto, converte em Nodes para extrair o atributo
               else if (context.strings && context.strings.length) {
                 const parser = new DOMParser();
@@ -61,17 +67,36 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
               break;
             }
             case "Index": {
-              const idx = parseInt(rule.trim(), 10);
-              let arr = (context.elements && context.elements.length) ? context.elements : (context.strings || []);
-              const realIndex = idx < 0 ? arr.length + idx : idx;
-              const picked = arr[realIndex] !== undefined ? [arr[realIndex]] : [];
+              const indexes = rule.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
+              const useElements = context.elements && context.elements.length > 0;
+              const arr = useElements ? context.elements : (context.strings || []);
+              const parallelStrings = (useElements && context.strings && context.strings.length === arr.length) ? context.strings : null;
 
-              if (context.elements && context.elements.length) {
-                context = { elements: picked, strings: [] };
-              } else {
-                context = { elements: [], strings: picked };
+              let realIndex = null;
+              for (const idx of indexes) {
+                const candidate = idx < 0 ? arr.length + idx : idx;
+                if (arr[candidate] !== undefined) { realIndex = candidate; break; }
               }
-              steps.push({ type, values: picked });
+
+              let pickedElements = [];
+              let pickedStrings = [];
+              if (realIndex !== null) {
+                if (useElements) {
+                  pickedElements = [arr[realIndex]];
+                  pickedStrings = [parallelStrings ? parallelStrings[realIndex] : arr[realIndex].outerHTML];
+                } else {
+                  pickedStrings = [arr[realIndex]];
+                }
+              }
+
+              context = { elements: pickedElements, strings: pickedStrings };
+              steps.push({ type, values: pickedStrings });
+              break;
+            }
+            case "ActualLink": {
+              const values = [window.location.href];
+              context = { elements: [], strings: values };
+              steps.push({ type, values });
               break;
             }
             case "TextContent": {
@@ -123,7 +148,12 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
               if (context.elements && context.elements.length) {
                 values = context.elements
-                .map(el => el.getAttribute(attrName))
+                .map(el => {
+                  if (attrName in el && (attrName === 'href' || attrName === 'src')) {
+                    return el[attrName];
+                  }
+                  return el.getAttribute(attrName);
+                })
                 .filter(v => v !== null);
               } else if (context.strings && context.strings.length) {
                 const parser = new DOMParser();
