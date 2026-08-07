@@ -1,0 +1,39 @@
+{
+    "manifest_version": 3,
+    "name": "Harvest Scraper",
+    "version": "1.0.0",
+    "description": "When automated scrapping a site fails, use this.",
+    "permissions": ["storage", "activeTab", "scripting", "downloads"],
+    "action": {
+        "default_title": "Harvest this page",
+        "default_icon": {
+            "16": "icons/icon.png",
+            "48": "icons/icon.png"
+        }
+    },
+    "sidebar_action": {
+        "default_panel": "popup.html",
+        "default_icon": "icon.png",
+        "default_title": "Harvest Scraper"
+    },
+    "icons": {
+        "16": "icons/icon.png",
+        "48": "icons/icon.png",
+        "128": "icons/icon.png"
+    },
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["content.js"]
+        }
+    ],
+    "background": {
+        "scripts": ["background.js"]
+    },
+    "web_accessible_resources": [
+    {
+        "resources": ["loader.html", "loader.js"],
+        "matches": ["<all_urls>"]
+    }
+    ]
+}

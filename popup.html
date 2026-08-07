@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Harvest Scraper</title>
+</head>
+<style>
+    *,
+    *::before,
+    *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    * {
+        font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+        font-size: 12px;
+    }
+
+    :root {
+        --background-lighter: #fefbf3;
+        --background-light: #fef2de;
+        --background-regular: #ffe5b7;
+        --background-button: #fff4e2;
+        --border-desaturated: #d4cbbc;
+        --border-light: #d1ba95;
+        --border-regular: #b88225;
+        --border-accent: #7e5000;
+        --add-accent: rgb(13, 160, 13);
+        --delete-accent: rgb(172, 25, 25);
+    }
+
+    html,
+    body {
+        width: 550px;
+        min-height: 100px;
+        max-height: 600px;
+        margin: 0;
+        padding: 0;
+    }
+
+    .main-container {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+
+        width: 100%;
+        max-height: 600px;
+        overflow-y: auto;
+        padding: 10px;
+        background-color: var(--background-regular);
+        background-image: radial-gradient(circle, var(--border-desaturated) 1px, transparent 1px);
+        background-size: 3px 3px;
+    }
+
+    .buttons-row {
+        display: flex;
+        gap: 10px;
+    }
+
+    .btn-addfield,
+    .btn-harvest,
+    .btn-downloadcsv,
+    .btn-cleardata,
+    .btn-savejson,
+    .btn-loadjson,
+    .btn-help {
+        display: flex;
+        gap: 4px;
+        background: var(--background-button);
+        padding: 8px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-addfield svg,
+    .btn-harvest svg,
+    .btn-downloadcsv svg,
+    .btn-cleardata svg,
+    .btn-savejson svg,
+    .btn-loadjson svg,
+    .btn-help svg {
+        pointer-events: none;
+    }
+
+    .btn-addfield:hover {
+        color: var(--add-accent);
+        border-color: var(--add-accent);
+        transform: scale(1.05);
+        transition: 80ms;
+    }
+
+    .btn-harvest:hover {
+        color: var(--border-accent);
+        border-color: var(--border-accent);
+        transform: scale(1.05);
+        transition: 80ms;
+    }
+
+    .btn-downloadcsv:hover {
+        color: var(--border-accent);
+        border-color: var(--border-accent);
+        transform: scale(1.05);
+        transition: 80ms;
+    }
+
+    .btn-cleardata:hover {
+        color: var(--delete-accent);
+        border-color: var(--delete-accent);
+        transform: scale(1.05);
+        transition: 80ms;
+    }
+
+    .btn-savejson:hover, .btn-loadjson:hover {
+        color: #486e29;
+        border-color: #7db94c;
+        transform: scale(1.05);
+        transition: 20ms;
+    }
+
+    .btn-help:hover {
+        color: var(--delete-accent);
+        border-color: var(--delete-accent);
+        transform: scale(1.05);
+        transition: 80ms;
+    }
+
+    /* ---- Sections / Tabs ---- */
+    .sections-bar {
+        display: flex;
+        gap: 4px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .section-tab {
+        padding: 6px 10px;
+        background: var(--background-button);
+        border: 1px solid var(--border-desaturated);
+        border-radius: 4px 4px 0 0;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .section-tab.active {
+        background: var(--background-light);
+        border-bottom: 2px solid var(--border-accent);
+        color: var(--border-accent);
+    }
+
+    .btn-addsection {
+        padding: 6px 10px;
+        background: var(--background-button);
+        border: 1px solid var(--border-desaturated);
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 700;
+    }
+
+    .btn-addsection:hover {
+        color: var(--add-accent);
+        border-color: var(--add-accent);
+    }
+
+    .section-config {
+        display: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border: 1px solid var(--border-light);
+        border-radius: 4px;
+        background-color: var(--background-lighter);
+    }
+
+    .section-config select {
+        padding: 4px;
+    }
+
+    .section-config.hidden-fields .select-linkfield,
+    .section-config.hidden-fields .select-targetsection,
+    .section-config.hidden-fields .linksource-label-to {
+        display: none;
+    }
+
+    /* ---- rest ---- */
+
+    .allresults-area {
+        padding: 2px 2px 2px 8px;
+        min-height: calc(2em);
+        max-height: 7.5em;
+        overflow-y: auto;
+        position: relative;
+        color: gray;
+        border: 1px solid var(--border-desaturated);
+        border-radius: 4px;
+        background-color: #ebe8e0;
+        white-space: pre-wrap;
+    }
+
+    .sections-content {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .inputs-container {
+        display: none;
+        flex-direction: column;
+        gap: 20px;
+
+        padding: 10px;
+        border: 1px solid var(--border-light);
+        border-radius: 5px;
+        background-color: var(--background-light);
+    }
+
+    .input-row {
+        display: flex;
+        gap: 10px;
+    }
+
+    .input-container {
+        display: flex;
+        flex-direction: column;
+        min-width: 0px;
+        gap: 4px;
+    }
+
+    .textarea-container {
+        display: flex;
+        flex-direction: column;
+        min-width: 0px;
+        flex: 1;
+        gap: 4px;
+        width: 100%;
+    }
+
+    .input-container label,
+    .textarea-container label {
+        font-weight: 700;
+    }
+
+    input,
+    textarea,
+    select,
+    button {
+        border: 1px solid var(--border-desaturated);
+        border-radius: 4px;
+        background-color: var(--background-lighter);
+    }
+
+    input:focus,
+    textarea:focus {
+        outline: none;
+        border: 2px solid var(--border-accent);
+    }
+
+    .input-key {
+        padding: 10px;
+        height: calc(1.5em * 2);
+        min-height: calc(1.5em * 2);
+        border-radius: 4px;
+    }
+
+    .btn-delrow {
+        background: transparent;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-delrow svg {
+        pointer-events: none;
+    }
+
+    .btn-delrow:hover {
+        color: var(--delete-accent);
+    }
+
+    .lastrule-container {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        width: 100%;
+    }
+
+    .select-rule,
+    .btn-addrule,
+    .btn-delrule,
+    .btn-autoharvest {
+        flex-shrink: 0; /* Impede os botões e o select de espremê-los ou dobrar a linha */
+    }
+
+    .input-rule {
+        flex: 1;
+        padding: 8px;
+        line-height: 1.5;
+        min-width: 0;
+        height: calc(1.5em * 2);
+        box-sizing: border-box;
+        resize: vertical;
+    }
+
+    .select-rule {
+        padding: 8px;
+        width: fit-content;
+    }
+
+    .btn-addrule {
+        background: transparent;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-addrule svg {
+        pointer-events: none;
+    }
+
+    .btn-addrule:hover {
+        color: var(--add-accent);
+    }
+
+    .btn-delrule {
+        background: transparent;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-delrule svg {
+        pointer-events: none;
+    }
+
+    .btn-delrule:hover {
+        color: var(--delete-accent);
+    }
+
+    .btn-autoharvest {
+        background: transparent;
+        border: 1px solid var(--border-desaturated);
+        border-radius: 4px;
+        padding: 4px 8px;
+        cursor: pointer;
+    }
+
+    .btn-autoharvest:hover {
+        color: var(--add-accent);
+        border-color: var(--add-accent);
+    }
+
+    .result-area {
+        padding: 4px 4px 4px 8px;
+        min-height: calc(1.5em * 2);
+        max-height: 7.5em;
+        overflow-y: auto;
+        position: relative;
+        color: gray;
+        border: 1px solid var(--border-desaturated);
+        border-radius: 4px;
+        background-color: #ebe8e0;
+        white-space: pre-wrap;
+    }
+
+    .result-counter {
+        position: absolute;
+        min-height: calc(1.5em);
+        right: 8px;
+        color: teal;
+        font-size: 14px;
+        font-weight: bold;
+    }
+</style>
+
+<body>
+
+    <script type="text/javascript" src="popup.js"></script>
+
+    <div class="main-container">
+
+        <div class="buttons-row">
+            <button class="btn-addfield" id="btn-addinput"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 5H3"/><path d="M11 12H3"/><path d="M16 19H3"/><path d="M18 9v6"/><path d="M21 12h-6"/></svg>Add row</button>
+            <button class="btn-harvest" id="btn-harvest"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10 11 11 .9a1 1 0 0 1 .8 1.1l-.665 4.158a1 1 0 0 1-.988.842H20"/><path d="M16 18h-5"/><path d="M18 5a1 1 0 0 0-1 1v5.573"/><path d="M3 4h8.129a1 1 0 0 1 .99.863L13 11.246"/><path d="M4 11V4"/><path d="M7 15h.01"/><path d="M8 10.1V4"/><circle cx="18" cy="18" r="2"/><circle cx="7" cy="15" r="5"/></svg>Harvest</button>
+            <button class="btn-downloadcsv" id="btn-downloadcsv"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>Download</button>
+            <button class="btn-cleardata" id="btn-cleardata"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M9 15h6"/><path d="M12 18v-6"/></svg>New</button>
+            <button class="btn-savejson" id="btn-savejson"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg></button>
+            <button class="btn-loadjson" id="btn-loadjson"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.1 22H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.706.706l3.589 3.588A2.4 2.4 0 0 1 20 8v3.25"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="m21 22-2.88-2.88"/><circle cx="16" cy="17" r="3"/></svg></button>
+            <button class="btn-help" id="btn-help"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg></button>
+        </div>
+
+        <div class="sections-bar" id="sections-bar">
+            <button class="btn-addsection" id="btn-addsection">+</button>
+        </div>
+
+        <p class="allresults-area" id="allresults-area">Accumulated: 0 entries.</p>
+
+        <div class="sections-content" id="sections-content"></div>
+
+    </div>
+</body>
+
+</html>
