@@ -1,0 +1,81 @@
+{
+  "domain": "claude.ai",
+  "sections": [
+    {
+      "id": 1,
+      "name": "Listagem",
+      "isLinkSource": true,
+      "linkSourceField": "links",
+      "targetSectionId": 2,
+      "rows": [
+        {
+          "name": "links",
+          "rules": [
+            {
+              "rule": "a[data-primary=true]",
+              "type": "CSS"
+            },
+            {
+              "rule": "href",
+              "type": "Attribute"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Chats",
+      "isLinkSource": false,
+      "linkSourceField": "title",
+      "targetSectionId": 1,
+      "rows": [
+        {
+          "name": "title",
+          "rules": [
+            {
+              "rule": "span[class=\"min-w-0 truncate font-base-bold\"]",
+              "type": "CSS"
+            },
+            {
+              "rule": "",
+              "type": "TextContent"
+            }
+          ]
+        },
+        {
+          "name": "text-plain",
+          "rules": [
+            {
+              "rule": "div[role=\"article\"]",
+              "type": "CSS"
+            },
+            {
+              "rule": "",
+              "type": "TextContent"
+            }
+          ]
+        },
+        {
+          "name": "raw-html",
+          "rules": [
+            {
+              "rule": "div[role=\"article\"]",
+              "type": "CSS"
+            }
+          ]
+        },
+        {
+          "name": "link",
+          "rules": [
+            {
+              "rule": " ",
+              "type": "ActualLink"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "activeSectionId": 1
+}

@@ -452,6 +452,45 @@ async function downloadCSV() {
     });
 }
 
+async function downloadJSON() {
+    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+    const domain = tabs[0]?.url ? new URL(tabs[0].url).hostname.replace(/\./g, "_") : '';
+
+    const result = await browser.storage.local.get("accumulatedHarvestData");
+    const data = result.accumulatedHarvestData || [];
+    if (!data.length) {
+        alert("Nenhum dado acumulado para exportar.");
+        return;
+    }
+
+    const headers = Object.keys(data[0]);
+    const primaryKey = prompt(
+        `Campo para usar como ID primário (deixe vazio para exportar como lista simples):\nCampos disponíveis: ${headers.join(', ')}`,
+                              ''
+    );
+
+    let jsonContent;
+    if (primaryKey && headers.includes(primaryKey)) {
+        const keyed = {};
+        data.forEach(row => {
+            const { [primaryKey]: id, ...rest } = row;
+            keyed[id] = rest;
+        });
+        jsonContent = JSON.stringify(keyed, null, 2);
+    } else {
+        jsonContent = JSON.stringify(data, null, 2);
+    }
+
+    const blob = new Blob([jsonContent], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `harvest_export_${domain}_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
 async function saveRulesAsJSON() {
     const tabs = await browser.tabs.query({ active: true, currentWindow: true });
     const domain = tabs[0]?.url ? new URL(tabs[0].url).hostname : '';
@@ -463,7 +502,7 @@ async function saveRulesAsJSON() {
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = `harvest_rules_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `harvest_rules_${domain}_${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
 }
@@ -536,15 +575,26 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Espera até o harvest da seção retornar algo não-vazio, ou desiste após maxAttempts
-async function harvestSectionWithRetry(sectionId, maxAttempts = 5, intervalMs = 5000) {
+function getInstantFieldNames(sectionId) {
+    const container = document.getElementById(`inputs-container-${sectionId}`);
+    if (!container) return [];
+    return Array.from(container.querySelectorAll('.input-row')).filter(row => {
+        const lastSelect = Array.from(row.querySelectorAll('.select-rule')).pop();
+        return lastSelect && lastSelect.value === 'ActualLink';
+    }).map(row => row.querySelector('.input-key')?.value.trim());
+}
+
+async function harvestSectionWithRetry(sectionId, maxAttempts = 5, intervalMs = 4000) {
+    const instantFields = getInstantFieldNames(sectionId);
+
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const summary = await harvestSectionRaw(sectionId);
-        const hasContent = Object.values(summary).some(arr => arr.some(v => v));
+        const relevantEntries = Object.entries(summary).filter(([key]) => !instantFields.includes(key));
+        const hasContent = relevantEntries.length > 0 && relevantEntries.every(([, arr]) => arr.some(v => v));
         if (hasContent) return summary;
         await delay(intervalMs);
     }
-    return await harvestSectionRaw(sectionId); // última tentativa, mesmo vazia
+    return await harvestSectionRaw(sectionId);
 }
 
 function navigateAndWait(tabId, url) {
@@ -850,6 +900,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById("btn-downloadcsv").addEventListener("click", downloadCSV);
+    document.getElementById("btn-downloadjson").addEventListener("click", downloadJSON);
     document.getElementById("btn-cleardata").addEventListener("click", clearAccumulatedData);
     document.getElementById("btn-savejson").addEventListener("click", saveRulesAsJSON);
 
