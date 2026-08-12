@@ -27,6 +27,7 @@ function addInput(sectionId) {
                             <option value="CSS">CSS Selector</option>
                             <option value="Attribute">Attribute</option>
                             <option value="Index">Index</option>
+                            <option value="PageTitle">Page Title</option>
                             <option value="ActualLink">Actual Link</option>
                             <option value="TextContent">Text Content</option>
                             <option value="Regex">Regex</option>
@@ -56,6 +57,7 @@ function handleButtonsClick(e) {
                         <option value="CSS">CSS Selector</option>
                         <option value="Attribute">Attribute</option>
                         <option value="Index">Index</option>
+                        <option value="PageTitle">Page Title</option>
                         <option value="ActualLink">Actual Link</option>
                         <option value="TextContent">Text Content</option>
                         <option value="Regex">Regex</option>
@@ -85,12 +87,15 @@ function createSectionDOM(section) {
     config.className = 'section-config';
     config.dataset.sectionId = section.id;
     config.innerHTML = `
-        <label><input type="checkbox" class="chk-linksource" /> Process data using field </label>
+        <label><input type="checkbox" class="chk-linksource" /> This tab get links to visit in another tab</label>
         <select class="select-linkfield"></select>
-        <span class="linksource-label-to">in tab </span>
+        <span class="linksource-label-to">abrir em:</span>
         <select class="select-targetsection"></select>
+        <label><input type="checkbox" class="chk-staticlinks" /> Usar links já carregados (estático, não rehavesta a listagem)</label>
+        <button class="btn-capturelinks">Capturar links agora</button>
+        <span class="staticlinks-count"></span>
         <button class="btn-processlinks" title="Processar todos os links agora (sem paginação)">▶ Process links</button>
-        <button class="btn-delsection">Remove Tab</button>
+        <button class="btn-delsection">Remover aba</button>
     `;
     wrap.appendChild(config);
 
@@ -155,6 +160,10 @@ function populateSectionDropdowns(sectionId) {
     config.classList.toggle('hidden-fields', !section.isLinkSource);
     section.linkSourceField = fieldSelect.value || '';
     section.targetSectionId = targetSelect.value ? parseInt(targetSelect.value, 10) : null;
+    config.querySelector('.chk-staticlinks').checked = section.useStaticLinks;
+    config.querySelector('.staticlinks-count').textContent = section.staticLinks?.length
+    ? `${section.staticLinks.length} links capturados`
+    : 'nenhum link capturado ainda';
 }
 
 // ------------------------------------------------------------------
@@ -180,6 +189,8 @@ function getFullState() {
             isLinkSource: s.isLinkSource,
             linkSourceField: s.linkSourceField,
             targetSectionId: s.targetSectionId,
+            useStaticLinks: s.useStaticLinks,
+            staticLinks: s.staticLinks,
             rows: getSectionRows(s.id)
         })),
         activeSectionId
@@ -218,7 +229,9 @@ function restoreFormState(state) {
             name: sData.name || `Aba ${sData.id}`,
             isLinkSource: !!sData.isLinkSource,
             linkSourceField: sData.linkSourceField || '',
-            targetSectionId: sData.targetSectionId || null
+            targetSectionId: sData.targetSectionId || null,
+            useStaticLinks: !!sData.useStaticLinks,
+            staticLinks: sData.staticLinks || []
         };
         sections.push(section);
         createSectionDOM(section);
@@ -308,17 +321,28 @@ async function harvestSectionRaw(sectionId) {
 // link achado, harvesta a aba de destino, e salva uma linha combinada por item.
 async function harvestSectionWithDetails(sectionId, save, isActiveFn = () => true) {
     const section = sections.find(s => s.id === sectionId);
-    const listSummary = await harvestSectionRaw(sectionId);
+    if (!section) return {};
 
-    if (!section || !section.isLinkSource || !section.targetSectionId || !section.linkSourceField) {
-        if (save) {
-            const total = await appendToAccumulatedData(listSummary);
-            updateAllResultCounter(total);
+    let links;
+    let listSummary = {};
+
+    if (section.isLinkSource && section.useStaticLinks) {
+        links = section.staticLinks || [];
+    } else {
+        listSummary = await harvestSectionRaw(sectionId);
+
+        if (!section.isLinkSource || !section.targetSectionId || !section.linkSourceField) {
+            if (save) {
+                const total = await appendToAccumulatedData(listSummary);
+                updateAllResultCounter(total);
+            }
+            return listSummary;
         }
-        return listSummary;
+
+        links = (listSummary[section.linkSourceField] || []).filter(Boolean);
     }
 
-    const links = (listSummary[section.linkSourceField] || []).filter(Boolean);
+    if (!section.targetSectionId) return listSummary;
 
     const tabs = await browser.tabs.query({ active: true, currentWindow: true });
     const tabId = tabs[0]?.id;
@@ -584,7 +608,7 @@ function getInstantFieldNames(sectionId) {
     }).map(row => row.querySelector('.input-key')?.value.trim());
 }
 
-async function harvestSectionWithRetry(sectionId, maxAttempts = 5, intervalMs = 4000) {
+async function harvestSectionWithRetry(sectionId, maxAttempts = 5, intervalMs = 20000) {
     const instantFields = getInstantFieldNames(sectionId);
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -736,7 +760,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     document.getElementById("btn-addsection").addEventListener("click", () => {
         const id = sectionCounter++;
-        const section = { id, name: `Aba ${id}`, isLinkSource: false, linkSourceField: '', targetSectionId: null };
+        const section = { id, name: `Aba ${id}`, isLinkSource: false, linkSourceField: '', targetSectionId: null, useStaticLinks: false, staticLinks: [] };
         sections.push(section);
         createSectionDOM(section);
         addInput(id);
@@ -836,6 +860,18 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        const captureLinksBtn = e.target.closest(".btn-capturelinks");
+        if (captureLinksBtn) {
+            const config = captureLinksBtn.closest('.section-config');
+            const section = sections.find(s => s.id === parseInt(config.dataset.sectionId, 10));
+            harvestSectionRaw(section.id).then(summary => {
+                section.staticLinks = (summary[section.linkSourceField] || []).filter(Boolean);
+                config.querySelector('.staticlinks-count').textContent = `${section.staticLinks.length} links capturados`;
+                saveFormState();
+            });
+            return;
+        }
+
         handleButtonsClick(e);
         saveFormState();
         harvestSectionRaw(activeSectionId);
@@ -879,6 +915,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const config = e.target.closest('.section-config');
             const section = sections.find(s => s.id === parseInt(config.dataset.sectionId, 10));
             section.targetSectionId = parseInt(e.target.value, 10);
+            saveFormState();
+            return;
+        }
+        if (e.target.classList.contains("chk-staticlinks")) {
+            const config = e.target.closest('.section-config');
+            const section = sections.find(s => s.id === parseInt(config.dataset.sectionId, 10));
+            section.useStaticLinks = e.target.checked;
             saveFormState();
             return;
         }

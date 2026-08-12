@@ -99,6 +99,12 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
               steps.push({ type, values });
               break;
             }
+            case "PageTitle": {
+              const values = [document.title];
+              context = { elements: [], strings: values };
+              steps.push({ type, values });
+              break;
+            }
             case "TextContent": {
               let values = [];
 

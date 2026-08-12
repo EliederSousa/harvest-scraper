@@ -1,0 +1,89 @@
+{
+  "domain": "",
+  "sections": [
+    {
+      "id": 1,
+      "name": "Listagem",
+      "isLinkSource": false,
+      "linkSourceField": "links",
+      "targetSectionId": 2,
+      "useStaticLinks": false,
+      "staticLinks": [],
+      "rows": [
+        {
+          "name": "links",
+          "rules": [
+            {
+              "rule": "a[class=\"group __menu-item hoverable transition-colors keyboard-focused:focus-ring keyboard-focused:-outline-offset-2 transition-opacity duration-150\"]",
+              "type": "CSS"
+            },
+            {
+              "rule": "href",
+              "type": "Attribute"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "chat",
+      "isLinkSource": false,
+      "linkSourceField": "title",
+      "targetSectionId": 1,
+      "useStaticLinks": false,
+      "staticLinks": [],
+      "rows": [
+        {
+          "name": "title",
+          "rules": [
+            {
+              "rule": " ",
+              "type": "PageTitle"
+            }
+          ]
+        },
+        {
+          "name": "link",
+          "rules": [
+            {
+              "rule": " ",
+              "type": "ActualLink"
+            }
+          ]
+        },
+        {
+          "name": "content",
+          "rules": [
+            {
+              "rule": "div.contents[role=\"presentation\"]",
+              "type": "CSS"
+            },
+            {
+              "rule": "div[class=\"flex min-h-0 grow flex-col text-sm\"]",
+              "type": "CSS"
+            },
+            {
+              "rule": "  ",
+              "type": "TextContent"
+            }
+          ]
+        },
+        {
+          "name": "content-raw",
+          "rules": [
+            {
+              "rule": "div.contents[role=\"presentation\"]",
+              "type": "CSS"
+            },
+            {
+              "rule": "div[class=\"flex min-h-0 grow flex-col text-sm\"]",
+              "type": "CSS"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "activeSectionId": 1
+}
