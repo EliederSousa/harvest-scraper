@@ -27,6 +27,7 @@ function addInput(sectionId) {
                             <option value="CSS">CSS Selector</option>
                             <option value="Attribute">Attribute</option>
                             <option value="Index">Index</option>
+                            <option value="Range">Range</option>
                             <option value="PageTitle">Page Title</option>
                             <option value="ActualLink">Actual Link</option>
                             <option value="TextContent">Text Content</option>
@@ -57,6 +58,7 @@ function handleButtonsClick(e) {
                         <option value="CSS">CSS Selector</option>
                         <option value="Attribute">Attribute</option>
                         <option value="Index">Index</option>
+                        <option value="Range">Range</option>
                         <option value="PageTitle">Page Title</option>
                         <option value="ActualLink">Actual Link</option>
                         <option value="TextContent">Text Content</option>
@@ -608,7 +610,7 @@ function getInstantFieldNames(sectionId) {
     }).map(row => row.querySelector('.input-key')?.value.trim());
 }
 
-async function harvestSectionWithRetry(sectionId, maxAttempts = 5, intervalMs = 20000) {
+async function harvestSectionWithRetry(sectionId, maxAttempts = 3, intervalMs = 10000) {
     const instantFields = getInstantFieldNames(sectionId);
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {

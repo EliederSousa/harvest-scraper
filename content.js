@@ -93,6 +93,52 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
               steps.push({ type, values: pickedStrings });
               break;
             }
+            case "Range": {
+              const useElements = context.elements && context.elements.length > 0;
+              const arr = useElements ? context.elements : (context.strings || []);
+              const parallelStrings = (useElements && context.strings && context.strings.length === arr.length) ? context.strings : null;
+
+              const indexSet = new Set();
+              rule.split(',').map(s => s.trim()).filter(Boolean).forEach(part => {
+                if (part.includes(':')) {
+                  // "70:" ou ":70"
+                  const [startRaw, endRaw] = part.split(':');
+                  const start = startRaw === '' ? 0 : parseInt(startRaw, 10);
+                  const end = endRaw === '' ? arr.length - 1 : parseInt(endRaw, 10);
+                  for (let i = start; i <= end; i++) indexSet.add(i);
+                } else if (part.includes('-')) {
+                  // "70-100"
+                  const [startRaw, endRaw] = part.split('-');
+                  const start = parseInt(startRaw, 10);
+                  const end = parseInt(endRaw, 10);
+                  for (let i = start; i <= end; i++) indexSet.add(i);
+                } else {
+                  // índice único, ex: "5"
+                  const idx = parseInt(part, 10);
+                  if (!isNaN(idx)) indexSet.add(idx);
+                }
+              });
+
+              const sortedIndexes = Array.from(indexSet)
+              .map(i => i < 0 ? arr.length + i : i)
+              .filter(i => arr[i] !== undefined)
+              .sort((a, b) => a - b);
+
+              let pickedElements = [];
+              let pickedStrings = [];
+              sortedIndexes.forEach(i => {
+                if (useElements) {
+                  pickedElements.push(arr[i]);
+                  pickedStrings.push(parallelStrings ? parallelStrings[i] : arr[i].outerHTML);
+                } else {
+                  pickedStrings.push(arr[i]);
+                }
+              });
+
+              context = { elements: pickedElements, strings: pickedStrings };
+              steps.push({ type, values: pickedStrings });
+              break;
+            }
             case "ActualLink": {
               const values = [window.location.href];
               context = { elements: [], strings: values };
