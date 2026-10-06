@@ -26,12 +26,12 @@ function addInput(sectionId) {
                         <select class="select-rule" name="ruletype">
                             <option value="CSS">CSS Selector</option>
                             <option value="Attribute">Attribute</option>
-                            <option value="Index">Index</option>
                             <option value="Range">Range</option>
                             <option value="PageTitle">Page Title</option>
                             <option value="ActualLink">Actual Link</option>
                             <option value="TextContent">Text Content</option>
                             <option value="Regex">Regex</option>
+                            <option value="RegexGlobal">Regex Global</option>
                             <option value="AutoLink">Auto Link</option>
                         </select>
                         <button class="btn-addrule"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg></button>
@@ -57,12 +57,12 @@ function handleButtonsClick(e) {
                     <select class="select-rule" name="ruletype">
                         <option value="CSS">CSS Selector</option>
                         <option value="Attribute">Attribute</option>
-                        <option value="Index">Index</option>
                         <option value="Range">Range</option>
                         <option value="PageTitle">Page Title</option>
                         <option value="ActualLink">Actual Link</option>
                         <option value="TextContent">Text Content</option>
                         <option value="Regex">Regex</option>
+                        <option value="RegexGlobal">Regex Global</option>
                         <option value="AutoLink">Auto Link</option>
                     </select>
                     <button class="btn-addrule"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg></button>

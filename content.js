@@ -66,33 +66,6 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
               steps.push({ type, values });
               break;
             }
-            case "Index": {
-              const indexes = rule.split(',').map(s => parseInt(s.trim(), 10)).filter(n => !isNaN(n));
-              const useElements = context.elements && context.elements.length > 0;
-              const arr = useElements ? context.elements : (context.strings || []);
-              const parallelStrings = (useElements && context.strings && context.strings.length === arr.length) ? context.strings : null;
-
-              let realIndex = null;
-              for (const idx of indexes) {
-                const candidate = idx < 0 ? arr.length + idx : idx;
-                if (arr[candidate] !== undefined) { realIndex = candidate; break; }
-              }
-
-              let pickedElements = [];
-              let pickedStrings = [];
-              if (realIndex !== null) {
-                if (useElements) {
-                  pickedElements = [arr[realIndex]];
-                  pickedStrings = [parallelStrings ? parallelStrings[realIndex] : arr[realIndex].outerHTML];
-                } else {
-                  pickedStrings = [arr[realIndex]];
-                }
-              }
-
-              context = { elements: pickedElements, strings: pickedStrings };
-              steps.push({ type, values: pickedStrings });
-              break;
-            }
             case "Range": {
               const useElements = context.elements && context.elements.length > 0;
               const arr = useElements ? context.elements : (context.strings || []);
@@ -101,21 +74,27 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
               const indexSet = new Set();
               rule.split(',').map(s => s.trim()).filter(Boolean).forEach(part => {
                 if (part.includes(':')) {
-                  // "70:" ou ":70"
+                  // "70:", ":70", ":-10", "70:-10"
                   const [startRaw, endRaw] = part.split(':');
                   const start = startRaw === '' ? 0 : parseInt(startRaw, 10);
-                  const end = endRaw === '' ? arr.length - 1 : parseInt(endRaw, 10);
-                  for (let i = start; i <= end; i++) indexSet.add(i);
-                } else if (part.includes('-')) {
-                  // "70-100"
-                  const [startRaw, endRaw] = part.split('-');
-                  const start = parseInt(startRaw, 10);
-                  const end = parseInt(endRaw, 10);
-                  for (let i = start; i <= end; i++) indexSet.add(i);
+
+                  let end;
+
+                  if (endRaw === '') {
+                    end = arr.length - 1;
+                  } else {
+                    const parsedEnd = parseInt(endRaw, 10);
+                    end = parsedEnd < 0 ? arr.length + parsedEnd - 1 : parsedEnd;
+                  }
+                  for (let i = start; i <= end; i++) {
+                    indexSet.add(i);
+                  }
                 } else {
-                  // índice único, ex: "5"
                   const idx = parseInt(part, 10);
-                  if (!isNaN(idx)) indexSet.add(idx);
+
+                  if (!isNaN(idx)) {
+                    indexSet.add(idx);
+                  }
                 }
               });
 
@@ -189,6 +168,26 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
                   values.push(match[1] !== undefined ? match[1] : match[0]);
                 }
               });
+
+              context = { strings: values, elements: [] };
+              steps.push({ type, values });
+              break;
+            }
+            case "RegexGlobal": {
+              const texts = context.strings.length
+              ? context.strings
+              : (context.elements || []).map(el => el.outerHTML);
+
+              // Junta todas as entradas em um único texto
+              const text = texts.join('\n');
+
+              const re = parseRegex(rule);
+              const values = [];
+
+              let match;
+              while ((match = re.exec(text)) !== null) {
+                values.push(match[1] !== undefined ? match[1] : match[0]);
+              }
 
               context = { strings: values, elements: [] };
               steps.push({ type, values });
