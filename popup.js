@@ -33,6 +33,7 @@ function addInput(sectionId) {
                             <option value="TextContent">Text Content</option>
                             <option value="Regex">Regex</option>
                             <option value="RegexGlobal">Regex Global</option>
+                            <option value="Join">Join</option>
                             <option value="AutoLink">Auto Link</option>
                         </select>
                         <button class="btn-pick" title="Pick element on page"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.495.495 0 0 1-.053.933l-6.91 1.866a2 2 0 0 0-1.4 1.4l-1.866 6.91a.495.495 0 0 1-.933.053z"/></svg></button>
@@ -65,6 +66,7 @@ function handleButtonsClick(e) {
                         <option value="TextContent">Text Content</option>
                         <option value="Regex">Regex</option>
                         <option value="RegexGlobal">Regex Global</option>
+                        <option value="Join">Join</option>
                         <option value="AutoLink">Auto Link</option>
                     </select>
                     <button class="btn-pick" title="Pick element on page"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.495.495 0 0 1-.053.933l-6.91 1.866a2 2 0 0 0-1.4 1.4l-1.866 6.91a.495.495 0 0 1-.933.053z"/></svg></button>
@@ -755,6 +757,16 @@ function deleteSection(sectionId) {
 // ------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", () => {
 
+    const btnSidebar = document.getElementById("btn-sidebar");
+    if (!browser.extension.getViews({ type: "popup" }).includes(window)) {
+        btnSidebar.style.display = "none";
+    } else {
+        btnSidebar.addEventListener("click", () => {
+            browser.sidebarAction.open();
+            window.close();
+        });
+    }
+
     document.getElementById("btn-addinput").addEventListener("click", () => {
         addInput(activeSectionId);
         populateSectionDropdowns(activeSectionId);
@@ -902,7 +914,7 @@ document.addEventListener("DOMContentLoaded", () => {
             saveFormState();
             clearTimeout(harvestDebounce);
             const rowId = e.target.closest('.input-row')?.id.replace('input-row-', '');
-            harvestDebounce = setTimeout(() => harvestSectionRaw(activeSectionId, rowId), 200);
+            harvestDebounce = setTimeout(() => harvestSectionRaw(activeSectionId, rowId), 500);
         }
     });
 

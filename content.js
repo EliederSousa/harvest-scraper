@@ -15,9 +15,11 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Guarda tanto as strings HTML quanto os elementos DOM selecionados
       let context = { elements: [document.body], strings: [] };
       const steps = [];
+      const NO_RULE = ['TextContent', 'Join', 'ActualLink', 'PageTitle'];
+      const lastIdx = rules.map(r => !!r.rule || NO_RULE.includes(r.type)).lastIndexOf(true);
 
-      rules.forEach(({ rule, type }) => {
-        if (!rule && type !== 'TextContent') return;
+      rules.forEach(({ rule, type }, ruleIdx) => {
+        if (!rule && !NO_RULE.includes(type)) return;
         try {
           switch (type) {
             case "CSS": {
@@ -28,8 +30,8 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
               const elements = baseElements.flatMap(el => Array.from(el.querySelectorAll(rule)));
               
               // Sempre extrai o outerHTML completo (objeto + filhos)
-              const values = elements.map(el => el.outerHTML);
-              
+              const values = ruleIdx === lastIdx ? elements.map(el => el.outerHTML) : [];
+
               context = { elements, strings: values };
               steps.push({ type, values });
               break;
@@ -187,8 +189,20 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
               let match;
               while ((match = re.exec(text)) !== null) {
                 values.push(match[1] !== undefined ? match[1] : match[0]);
+                if (match[0] === '') re.lastIndex++;
               }
 
+              context = { strings: values, elements: [] };
+              steps.push({ type, values });
+              break;
+            }
+            case "Join": {
+              const sep = rule ? rule.replace(/\\n/g, '\n').replace(/\\t/g, '\t') : '\n';
+              const texts = context.strings.length
+              ? context.strings
+              : (context.elements || []).map(el => el.outerHTML);
+
+              const values = texts.length ? [texts.join(sep)] : [];
               context = { strings: values, elements: [] };
               steps.push({ type, values });
               break;
@@ -227,10 +241,12 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       });
 
-      results[name] = steps;
+      // fix: resolve memory leak. Só precisamos do último passo
+      results[name] = steps.slice(-1);
     });
 
-    console.log(JSON.stringify(results, null, 2));
+    // Imprime os resultados da regra
+    // console.log(JSON.stringify(results, null, 2));
 
     sendResponse({ data: results });
   }

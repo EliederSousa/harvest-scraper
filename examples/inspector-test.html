@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Teste — Inspector XPath / CSS</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f3f4f6;
+    color: #222;
+  }
+
+  header {
+    padding: 24px;
+    background: #1f2937;
+    color: white;
+  }
+
+  main {
+    max-width: 900px;
+    margin: 30px auto;
+    padding: 24px;
+  }
+
+  .card {
+    background: white;
+    padding: 24px;
+    margin: 18px 0;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px #0002;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+  }
+
+  .item {
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+  }
+
+  button {
+    padding: 10px 16px;
+    cursor: pointer;
+  }
+
+  /* =========================================================
+     INSPECTOR
+     ========================================================= */
+
+  #inspector-overlay {
+    position: fixed;
+    z-index: 2147483646;
+    pointer-events: none;
+    background: rgba(80, 150, 255, 0.20);
+    border: 2px solid #3694ff;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.7) inset;
+    display: none;
+  }
+
+  #inspector-panel {
+    position: fixed;
+    z-index: 2147483647;
+    right: 15px;
+    bottom: 15px;
+    width: 460px;
+    max-width: calc(100vw - 30px);
+    padding: 14px;
+    background: rgba(25, 25, 28, .96);
+    color: #eee;
+    border-radius: 8px;
+    box-shadow: 0 8px 30px #0008;
+    font: 13px monospace;
+  }
+
+  #inspector-panel .title {
+    color: #69b7ff;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+
+  #inspector-panel .row {
+    margin-top: 8px;
+  }
+
+  #inspector-panel label {
+    display: block;
+    color: #aaa;
+    margin-bottom: 3px;
+  }
+
+  #inspector-panel code {
+    display: block;
+    padding: 8px;
+    background: #111;
+    color: #9cdcfe;
+    border-radius: 4px;
+    overflow-wrap: anywhere;
+    user-select: text;
+  }
+
+  #inspector-panel .hint {
+    margin-top: 10px;
+    color: #999;
+    font-size: 11px;
+  }
+
+  #inspector-panel button {
+    margin-top: 10px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 4px;
+    background: #3694ff;
+    color: white;
+  }
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Página de teste</h1>
+  <p>Passe o mouse sobre os elementos para testar o inspector.</p>
+</header>
+
+<main id="main-content">
+
+  <div class="card" id="profile-card">
+    <h2>Perfil</h2>
+    <p>Este é um elemento com <strong>id</strong>.</p>
+    <button id="profile-button" aria-label="Abrir perfil">Abrir perfil</button>
+  </div>
+
+  <div class="card" data-testid="products-section">
+    <h2>Produtos</h2>
+
+    <div class="grid">
+      <div class="item" data-product-id="101">
+        <h3>Produto A</h3>
+        <p>Descrição do produto A.</p>
+        <button class="buy-button" name="buy-a">Comprar</button>
+      </div>
+
+      <div class="item" data-product-id="102">
+        <h3>Produto B</h3>
+        <p>Descrição do produto B.</p>
+        <button class="buy-button" name="buy-b">Comprar</button>
+      </div>
+
+      <div class="item">
+        <h3>Produto C</h3>
+        <p>Elemento sem atributos especiais.</p>
+        <button class="buy-button">Comprar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Outro conteúdo</h2>
+    <p>
+      Passe o mouse por textos, botões, divs, títulos e outros elementos.
+    </p>
+  </div>
+
+</main>
+
+<div id="inspector-overlay"></div>
+
+<div id="inspector-panel">
+  <div class="title">Inspector</div>
+
+  <div class="row">
+    <label>Elemento</label>
+    <code id="info-element">—</code>
+  </div>
+
+  <div class="row">
+    <label>XPath</label>
+    <code id="info-xpath">—</code>
+  </div>
+
+  <div class="row">
+    <label>CSS Selector</label>
+    <code id="info-css">—</code>
+  </div>
+
+  <div class="hint">
+    Mouse = selecionar · Clique = fixar · ESC = cancelar
+  </div>
+
+  <button id="copy-button">Copiar seletores</button>
+</div>
+
+<script>
+(() => {
+  const overlay = document.getElementById("inspector-overlay");
+  const elementInfo = document.getElementById("info-element");
+  const xpathInfo = document.getElementById("info-xpath");
+  const cssInfo = document.getElementById("info-css");
+  const copyButton = document.getElementById("copy-button");
+
+  let currentElement = null;
+  let locked = false;
+
+  /*
+   * Retorna uma classe utilizável em CSS.
+   */
+  function cssEscape(value) {
+    if (window.CSS && CSS.escape) return CSS.escape(value);
+    return value.replace(/([^\w-])/g, "\\$1");
+  }
+
+  /*
+   * Gera um XPath priorizando atributos que normalmente
+   * são mais estáveis que posições [1], [2], etc.
+   */
+  function getSmartXPath(element) {
+    if (element.id) {
+      return `//*[@id="${escapeXPath(element.id)}"]`;
+    }
+
+    const stableAttributes = [
+      "data-testid",
+      "data-test",
+      "data-cy",
+      "data-id",
+      "name",
+      "aria-label",
+      "role"
+    ];
+
+    for (const attr of stableAttributes) {
+      const value = element.getAttribute(attr);
+
+      if (value) {
+        const xpath = `//${element.tagName.toLowerCase()}[@${attr}="${escapeXPath(value)}"]`;
+
+        try {
+          if (document.evaluate(
+            xpath,
+            document,
+            null,
+            XPathResult.FIRST_ORDERED_NODE_TYPE,
+            null
+          ).singleNodeValue === element) {
+            return xpath;
+          }
+        } catch {}
+      }
+    }
+
+    /*
+     * Classes: tenta usar o conjunto completo de classes,
+     * desde que identifique unicamente o elemento.
+     */
+    if (element.classList.length) {
+      const classes = [...element.classList];
+
+      const predicates = classes
+        .map(c => `contains(concat(" ", normalize-space(@class), " "), " ${escapeXPath(c)} ")`)
+        .join(" and ");
+
+      const xpath = `//${element.tagName.toLowerCase()}[${predicates}]`;
+
+      try {
+        if (document.evaluate(
+          xpath,
+          document,
+          null,
+          XPathResult.FIRST_ORDERED_NODE_TYPE,
+          null
+        ).singleNodeValue === element) {
+          return xpath;
+        }
+      } catch {}
+    }
+
+    /*
+     * Fallback estrutural.
+     */
+    return getStructuralXPath(element);
+  }
+
+  function escapeXPath(value) {
+    if (!value.includes('"')) return value;
+
+    if (!value.includes("'")) {
+      return value.replaceAll('"', "'");
+    }
+
+    return value.split('"').map((part, i) => {
+      return i === 0
+        ? `"${part}"`
+        : `concat('"','"', "${part}")`;
+    }).join(",");
+  }
+
+  function getStructuralXPath(element) {
+    const parts = [];
+
+    while (element && element.nodeType === Node.ELEMENT_NODE) {
+      let index = 1;
+      let sibling = element.previousElementSibling;
+
+      while (sibling) {
+        if (sibling.tagName === element.tagName) {
+          index++;
+        }
+        sibling = sibling.previousElementSibling;
+      }
+
+      const tag = element.tagName.toLowerCase();
+
+      parts.unshift(
+        index > 1 ? `${tag}[${index}]` : tag
+      );
+
+      element = element.parentElement;
+    }
+
+    return "/" + parts.join("/");
+  }
+
+  /*
+   * CSS Selector.
+   */
+  function getCSSSelector(element) {
+    if (element.id) {
+      return `#${cssEscape(element.id)}`;
+    }
+
+    const stableAttributes = [
+      "data-testid",
+      "data-test",
+      "data-cy",
+      "data-id",
+      "name",
+      "aria-label"
+    ];
+
+    for (const attr of stableAttributes) {
+      const value = element.getAttribute(attr);
+
+      if (value) {
+        const selector =
+          `${element.tagName.toLowerCase()}[${attr}="${CSS.escape(value)}"]`;
+
+        try {
+          if (document.querySelectorAll(selector).length === 1) {
+            return selector;
+          }
+        } catch {}
+      }
+    }
+
+    if (element.classList.length) {
+      const selector =
+        element.tagName.toLowerCase() +
+        [...element.classList]
+          .map(c => `.${cssEscape(c)}`)
+          .join("");
+
+      try {
+        if (document.querySelectorAll(selector).length === 1) {
+          return selector;
+        }
+      } catch {}
+    }
+
+    return getStructuralCSS(element);
+  }
+
+  function getStructuralCSS(element) {
+    const parts = [];
+
+    while (element && element.nodeType === Node.ELEMENT_NODE) {
+      let selector = element.tagName.toLowerCase();
+
+      if (element.id) {
+        selector += `#${cssEscape(element.id)}`;
+        parts.unshift(selector);
+        break;
+      }
+
+      if (element.classList.length) {
+        selector += [...element.classList]
+          .map(c => `.${cssEscape(c)}`)
+          .join("");
+      }
+
+      const parent = element.parentElement;
+
+      if (parent) {
+        const siblings = [...parent.children]
+          .filter(e => e.tagName === element.tagName);
+
+        if (siblings.length > 1) {
+          selector += `:nth-of-type(${siblings.indexOf(element) + 1})`;
+        }
+      }
+
+      parts.unshift(selector);
+      element = parent;
+    }
+
+    return parts.join(" > ");
+  }
+
+  function inspect(element) {
+    if (!element || element === overlay || element === document.body) {
+      return;
+    }
+
+    currentElement = element;
+
+    const rect = element.getBoundingClientRect();
+
+    overlay.style.display = "block";
+    overlay.style.left = `${rect.left}px`;
+    overlay.style.top = `${rect.top}px`;
+    overlay.style.width = `${rect.width}px`;
+    overlay.style.height = `${rect.height}px`;
+
+    elementInfo.textContent =
+      `<${element.tagName.toLowerCase()}` +
+      (element.id ? ` id="${element.id}"` : "") +
+      (element.className && typeof element.className === "string"
+        ? ` class="${element.className}"`
+        : "") +
+      `>`;
+
+    xpathInfo.textContent = getSmartXPath(element);
+    cssInfo.textContent = getCSSSelector(element);
+  }
+
+  document.addEventListener("mousemove", event => {
+    if (locked) return;
+
+    /*
+     * O overlay não recebe eventos por causa do pointer-events:none.
+     * O painel, entretanto, pode ficar sob o mouse; ignoramos ele.
+     */
+    if (event.target.closest("#inspector-panel")) return;
+
+    inspect(event.target);
+  });
+
+  document.addEventListener("click", event => {
+    if (event.target.closest("#inspector-panel")) return;
+
+    locked = true;
+    inspect(event.target);
+  }, true);
+
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") {
+      locked = false;
+      currentElement = null;
+      overlay.style.display = "none";
+    }
+  });
+
+  copyButton.addEventListener("click", async () => {
+    if (!currentElement) return;
+
+    const text =
+      `XPath: ${xpathInfo.textContent}\n` +
+      `CSS: ${cssInfo.textContent}`;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      copyButton.textContent = "Copiado!";
+      setTimeout(() => {
+        copyButton.textContent = "Copiar seletores";
+      }, 1200);
+    } catch {
+      alert(text);
+    }
+  });
+
+  window.addEventListener("scroll", () => {
+    if (currentElement && locked) {
+      inspect(currentElement);
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (currentElement) {
+      inspect(currentElement);
+    }
+  });
+})();
+</script>
+
+</body>
+</html>

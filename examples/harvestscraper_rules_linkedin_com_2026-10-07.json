@@ -1,0 +1,217 @@
+{
+  "domain": "",
+  "sections": [
+    {
+      "id": 2,
+      "name": "main",
+      "isLinkSource": false,
+      "linkSourceField": "about",
+      "targetSectionId": 3,
+      "useStaticLinks": false,
+      "staticLinks": [],
+      "rows": [
+        {
+          "name": "about",
+          "rules": [
+            {
+              "rule": "#workspace",
+              "type": "CSS"
+            },
+            {
+              "rule": ">([^<]+)",
+              "type": "Regex"
+            },
+            {
+              "rule": "1:-71",
+              "type": "Range"
+            },
+            {
+              "rule": "Sobre\\s*([\\s\\S]*?)\\s*…\\s*mais",
+              "type": "RegexGlobal"
+            },
+            {
+              "rule": "0",
+              "type": "Range"
+            }
+          ]
+        },
+        {
+          "name": "status",
+          "rules": [
+            {
+              "rule": "#workspace",
+              "type": "CSS"
+            },
+            {
+              "rule": ">([^<]+)",
+              "type": "Regex"
+            },
+            {
+              "rule": "4",
+              "type": "Range"
+            }
+          ]
+        },
+        {
+          "name": "xp",
+          "rules": [
+            {
+              "rule": "#workspace",
+              "type": "CSS"
+            },
+            {
+              "rule": ">([^<]+)",
+              "type": "Regex"
+            },
+            {
+              "rule": "Exibir tudo\\s*Experiência\\s*([\\s\\S]*?)\\s*Formação acadêmica",
+              "type": "RegexGlobal"
+            }
+          ]
+        },
+        {
+          "name": "languages",
+          "rules": [
+            {
+              "rule": "#workspace",
+              "type": "CSS"
+            },
+            {
+              "rule": ">([^<]+)",
+              "type": "Regex"
+            },
+            {
+              "rule": "Idiomas\\s*([\\s\\S]*?)\\s*Interesses",
+              "type": "RegexGlobal"
+            }
+          ]
+        },
+        {
+          "name": "location",
+          "rules": [
+            {
+              "rule": "#workspace",
+              "type": "CSS"
+            },
+            {
+              "rule": ">([^<]+)",
+              "type": "Regex"
+            },
+            {
+              "rule": "4:8",
+              "type": "Range"
+            },
+            {
+              "rule": "[\\s].+,[\\s].+",
+              "type": "RegexGlobal"
+            },
+            {
+              "rule": "",
+              "type": "TextContent"
+            }
+          ]
+        },
+        {
+          "name": "link",
+          "rules": [
+            {
+              "rule": "",
+              "type": "ActualLink"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "skills",
+      "isLinkSource": false,
+      "linkSourceField": "skills",
+      "targetSectionId": 2,
+      "useStaticLinks": false,
+      "staticLinks": [],
+      "rows": [
+        {
+          "name": "skills",
+          "rules": [
+            {
+              "rule": "#workspace div[data-testid]",
+              "type": "CSS"
+            },
+            {
+              "rule": ">([^<]+)",
+              "type": "RegexGlobal"
+            },
+            {
+              "rule": "",
+              "type": "TextContent"
+            },
+            {
+              "rule": "0:-20",
+              "type": "Range"
+            },
+            {
+              "rule": "",
+              "type": "Join"
+            }
+          ]
+        },
+        {
+          "name": "link",
+          "rules": [
+            {
+              "rule": "",
+              "type": "ActualLink"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "certification",
+      "isLinkSource": false,
+      "linkSourceField": "certifications",
+      "targetSectionId": 2,
+      "useStaticLinks": false,
+      "staticLinks": [],
+      "rows": [
+        {
+          "name": "certifications",
+          "rules": [
+            {
+              "rule": "section[aria-label=\"Conteúdo principal\"]",
+              "type": "CSS"
+            },
+            {
+              "rule": ">([^<]+)",
+              "type": "Regex"
+            },
+            {
+              "rule": "",
+              "type": "TextContent"
+            },
+            {
+              "rule": "1:",
+              "type": "Range"
+            },
+            {
+              "rule": "",
+              "type": "Join"
+            }
+          ]
+        },
+        {
+          "name": "link",
+          "rules": [
+            {
+              "rule": "",
+              "type": "ActualLink"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "activeSectionId": 4
+}
