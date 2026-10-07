@@ -235,3 +235,109 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ data: results });
   }
 });
+
+
+// ---------------- Element picker (estilo inspetor do Firefox) ----------------
+(function () {
+  let active = false, box, label, styleEl, current = null;
+  const BLOCKED = ['mousedown', 'mouseup', 'pointerdown', 'pointerup', 'dblclick', 'contextmenu'];
+
+  const isUnique = (sel, el) => {
+    try { const n = document.querySelectorAll(sel); return n.length === 1 && n[0] === el; }
+    catch { return false; }
+  };
+
+  function buildSelector(el) {
+    const parts = [];
+    let cur = el;
+    while (cur && cur.nodeType === 1 && cur !== document.documentElement) {
+      let part = cur.tagName.toLowerCase();
+      if (cur.id) {
+        part = '#' + CSS.escape(cur.id);
+      } else {
+        part += Array.from(cur.classList).slice(0, 3).map(c => '.' + CSS.escape(c)).join('');
+        const parent = cur.parentElement;
+        if (parent && Array.from(parent.children).filter(s => s.matches(part)).length > 1) {
+          part += `:nth-child(${Array.from(parent.children).indexOf(cur) + 1})`;
+        }
+      }
+      parts.unshift(part);
+      const sel = parts.join(' > ');
+      if (isUnique(sel, el)) return sel;
+      cur = cur.parentElement;
+    }
+    return parts.join(' > ');
+  }
+
+  function place(el) {
+    if (!el || !box) return;
+    const r = el.getBoundingClientRect();
+    Object.assign(box.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+    label.textContent = el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') +
+    Array.from(el.classList).slice(0, 2).map(c => '.' + c).join('') +
+    `  ${Math.round(r.width)}×${Math.round(r.height)}`;
+    label.style.top = (r.top > 24 ? '-22px' : (r.height + 2) + 'px');
+  }
+
+  const onOver = (e) => { current = e.target; place(current); };
+  const onScroll = () => place(current);
+  const block = (e) => { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); };
+
+  function onClick(e) {
+    block(e);
+    const selector = buildSelector(e.target);
+    stop();
+    browser.runtime.sendMessage({ action: 'PICKED', selector });
+  }
+
+  function onKey(e) {
+    if (e.key !== 'Escape') return;
+    block(e);
+    stop();
+    browser.runtime.sendMessage({ action: 'PICK_CANCEL' });
+  }
+
+  function start() {
+    if (active) return;
+    active = true;
+
+    styleEl = document.createElement('style');
+    styleEl.textContent = '* { cursor: crosshair !important; }';
+    document.documentElement.appendChild(styleEl);
+
+    box = document.createElement('div');
+    box.style.cssText = 'position:fixed;pointer-events:none;z-index:2147483647;box-sizing:border-box;' +
+    'border:2px solid #0a84ff;background:rgba(10,132,255,.25);';
+    label = document.createElement('div');
+    label.style.cssText = 'position:absolute;left:-2px;white-space:nowrap;font:11px monospace;' +
+    'background:#1c1c1e;color:#fff;padding:2px 6px;border-radius:3px;';
+    box.appendChild(label);
+    document.documentElement.appendChild(box);
+
+    document.addEventListener('mouseover', onOver, true);
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('keydown', onKey, true);
+    document.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    BLOCKED.forEach(t => document.addEventListener(t, block, true));
+  }
+
+  function stop() {
+    if (!active) return;
+    active = false;
+    current = null;
+    document.removeEventListener('mouseover', onOver, true);
+    document.removeEventListener('click', onClick, true);
+    document.removeEventListener('keydown', onKey, true);
+    document.removeEventListener('scroll', onScroll, true);
+    window.removeEventListener('resize', onScroll);
+    BLOCKED.forEach(t => document.removeEventListener(t, block, true));
+    box?.remove(); styleEl?.remove();
+    box = label = styleEl = null;
+  }
+
+  browser.runtime.onMessage.addListener((message) => {
+    if (message.action === 'START_PICK') start();
+    else if (message.action === 'STOP_PICK') stop();
+  });
+})();

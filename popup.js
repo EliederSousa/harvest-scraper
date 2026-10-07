@@ -2,6 +2,7 @@ let harvest_keyscounter = 1;
 let sections = [];          // [{id, name, isLinkSource, linkSourceField, targetSectionId}]
 let activeSectionId = 1;
 let sectionCounter = 2;
+let pickTargetContainer = null;
 
 // ------------------------------------------------------------------
 // DOM building)
@@ -34,6 +35,7 @@ function addInput(sectionId) {
                             <option value="RegexGlobal">Regex Global</option>
                             <option value="AutoLink">Auto Link</option>
                         </select>
+                        <button class="btn-pick" title="Pick element on page"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.495.495 0 0 1-.053.933l-6.91 1.866a2 2 0 0 0-1.4 1.4l-1.866 6.91a.495.495 0 0 1-.933.053z"/></svg></button>
                         <button class="btn-addrule"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg></button>
                         <button class="btn-autoharvest" id="btn-autoharvest-${id}" style="display:none;">▶</button>
                     </div>
@@ -65,6 +67,7 @@ function handleButtonsClick(e) {
                         <option value="RegexGlobal">Regex Global</option>
                         <option value="AutoLink">Auto Link</option>
                     </select>
+                    <button class="btn-pick" title="Pick element on page"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.495.495 0 0 1-.053.933l-6.91 1.866a2 2 0 0 0-1.4 1.4l-1.866 6.91a.495.495 0 0 1-.933.053z"/></svg></button>
                     <button class="btn-addrule"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg></button>
                     <button class="btn-delrule"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                 </div>
@@ -252,6 +255,7 @@ function restoreFormState(state) {
                 const containers = row.querySelectorAll('.lastrule-container');
                 const container = containers[i];
                 container.querySelector('.select-rule').value = ruleData.type;
+                container.dataset.type = ruleData.type;
                 container.querySelector('.input-rule').value = ruleData.rule;
             });
         });
@@ -267,12 +271,14 @@ function restoreFormState(state) {
 
 // Roda as regras de UMA aba na página atual e devolve {rowName: [valores]}
 // Atualiza a UI de resultado só se for a aba visível no momento.
-async function harvestSectionRaw(sectionId) {
+async function harvestSectionRaw(sectionId, onlyRowId = null) {
     const container = document.getElementById(`inputs-container-${sectionId}`);
     if (!container) return {};
-    const rows = Array.from(container.querySelectorAll('.input-row'));
+    const allRows = Array.from(container.querySelectorAll('.input-row'));
+    const rows = onlyRowId ? allRows.filter(r => r.id === `input-row-${onlyRowId}`) : allRows;
+    if (!rows.length) return {};
 
-    updateAutoLinkButtonsVisibility(rows);
+    updateAutoLinkButtonsVisibility(allRows);
 
     const rulesArray = rows.map(row => ({
         name: row.querySelector('.input-key')?.value.trim(),
@@ -873,10 +879,17 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             return;
         }
-
+        const pickBtn = e.target.closest('.btn-pick');
+        if (pickBtn) {
+            pickTargetContainer = pickBtn.closest('.lastrule-container');
+            pickBtn.classList.add('active');
+            browser.tabs.query({ active: true, currentWindow: true }).then(tabs => {
+                if (tabs[0]?.id) browser.tabs.sendMessage(tabs[0].id, { action: "START_PICK" }).catch(console.log);
+            });
+            return;
+        }
         handleButtonsClick(e);
         saveFormState();
-        harvestSectionRaw(activeSectionId);
     });
 
     let harvestDebounce;
@@ -888,14 +901,16 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.target.classList.contains("input-rule") || e.target.classList.contains("input-key")) {
             saveFormState();
             clearTimeout(harvestDebounce);
-            harvestDebounce = setTimeout(() => harvestSectionRaw(activeSectionId), 200);
+            const rowId = e.target.closest('.input-row')?.id.replace('input-row-', '');
+            harvestDebounce = setTimeout(() => harvestSectionRaw(activeSectionId, rowId), 200);
         }
     });
 
     document.getElementById("sections-content").addEventListener("change", (e) => {
         if (e.target.classList.contains("select-rule")) {
+            e.target.closest('.lastrule-container').dataset.type = e.target.value;
             saveFormState();
-            harvestSectionRaw(activeSectionId);
+            harvestSectionRaw(activeSectionId, e.target.closest('.input-row')?.id.replace('input-row-', ''));
             return;
         }
         if (e.target.classList.contains("chk-linksource")) {
@@ -929,10 +944,31 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+
+    document.getElementById("sections-content").addEventListener("click", (e) => {
+        if (e.target.closest('.btn-delrow')) return;
+        const rowEl = e.target.closest('.input-row');
+        if (rowEl) harvestSectionRaw(activeSectionId, rowEl.id.replace('input-row-', ''));
+    });
+
     browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
         if (changeInfo.status === "complete" && tab.active && !autoHarvestActive) {
             harvestSectionRaw(activeSectionId);
         }
+    });
+
+
+    browser.runtime.onMessage.addListener((message) => {
+        if (message.action !== "PICKED" && message.action !== "PICK_CANCEL") return;
+        document.querySelectorAll('.btn-pick.active').forEach(b => b.classList.remove('active'));
+        if (message.action === "PICKED" && pickTargetContainer?.isConnected) {
+            pickTargetContainer.querySelector('.select-rule').value = 'CSS';
+            pickTargetContainer.dataset.type = 'CSS';
+            const ta = pickTargetContainer.querySelector('.input-rule');
+            ta.value = message.selector;
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        pickTargetContainer = null;
     });
 
     browser.storage.local.get("harvestFormState").then(result => {

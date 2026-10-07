@@ -265,6 +265,7 @@
         height: calc(1.5em * 2);
         min-height: calc(1.5em * 2);
         border-radius: 4px;
+        width: 100px;
     }
 
     .btn-delrow {
@@ -295,7 +296,7 @@
     .select-rule,
     .btn-addrule,
     .btn-delrule,
-    .btn-autoharvest {
+    .btn-autoharvest, .btn-pick {
         flex-shrink: 0; /* Impede os botões e o select de espremê-los ou dobrar a linha */
     }
 
@@ -330,6 +331,25 @@
 
     .btn-addrule:hover {
         color: var(--add-accent);
+    }
+
+
+    .btn-pick {
+        background: transparent;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .btn-pick svg { pointer-events: none; }
+    .btn-pick:hover, .btn-pick.active { color: var(--add-accent); }
+
+
+    .lastrule-container[data-type]:not([data-type="CSS"]) .btn-pick {
+        display: none;
     }
 
     .btn-delrule {
